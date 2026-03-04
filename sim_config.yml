@@ -1,0 +1,416 @@
+# =============================================================================
+# L2 Real Estate Blockchain Framework — Simulation Configuration
+# Paper: "A Scalable Layer Two Blockchain Framework for Enhancing
+#         Real Estate Transaction Efficiency"
+# =============================================================================
+# This file contains ALL tunable parameters for reproducing paper results.
+# Parameters are calibrated to Dubai Land Department (DLD) statistics (Sec 4.1)
+# and L1/L2 network characteristics (Sec 4.2).
+# =============================================================================
+
+# ---- Global Settings -------------------------------------------------------
+global:
+  random_seed: 42                    # Reproducibility seed
+  num_runs: 5                        # Monte Carlo runs for confidence intervals
+  confidence_level: 0.95             # 95% CI for reported metrics
+  output_dir: "data/processed"
+  figures_dir: "docs/figures"
+  results_dir: "docs/results"
+  log_level: "INFO"                  # DEBUG | INFO | WARNING | ERROR
+  quick_mode_transactions: 1000      # Subset for --quick flag
+
+# ---- Data Generation (Sec 4.1) ---------------------------------------------
+data_generation:
+  total_transactions: 50000          # Total synthetic transactions
+  time_horizon_days: 365             # 1-year simulation window
+  start_date: "2024-01-01"
+
+  # DLD-Calibrated Property Types & Distribution
+  property_types:
+    residential_apartment:
+      weight: 0.45                   # 45% of transactions
+      price_range_usd: [150000, 2500000]
+      price_mean_usd: 450000
+      price_std_usd: 280000
+      avg_sqft: 1200
+    residential_villa:
+      weight: 0.20                   # 20% of transactions
+      price_range_usd: [500000, 15000000]
+      price_mean_usd: 2100000
+      price_std_usd: 1500000
+      avg_sqft: 4500
+    commercial_office:
+      weight: 0.15                   # 15% of transactions
+      price_range_usd: [300000, 8000000]
+      price_mean_usd: 1200000
+      price_std_usd: 900000
+      avg_sqft: 3000
+    commercial_retail:
+      weight: 0.10                   # 10% of transactions
+      price_range_usd: [200000, 5000000]
+      price_mean_usd: 800000
+      price_std_usd: 600000
+      avg_sqft: 2000
+    land_plot:
+      weight: 0.07                   # 7% of transactions
+      price_range_usd: [100000, 50000000]
+      price_mean_usd: 3500000
+      price_std_usd: 5000000
+      avg_sqft: 10000
+    industrial_warehouse:
+      weight: 0.03                   # 3% of transactions
+      price_range_usd: [500000, 10000000]
+      price_mean_usd: 2000000
+      price_std_usd: 1500000
+      avg_sqft: 15000
+
+  # Seasonal Transaction Patterns (DLD quarterly data)
+  seasonal_multipliers:
+    Q1: 1.15                         # Jan-Mar: high activity post-holidays
+    Q2: 0.90                         # Apr-Jun: Ramadan slowdown
+    Q3: 0.80                         # Jul-Sep: summer heat / low activity
+    Q4: 1.15                         # Oct-Dec: Expo / year-end surge
+
+  # Monthly granularity within quarters
+  monthly_weights:
+    - 1.10   # January
+    - 1.15   # February
+    - 1.20   # March (peak)
+    - 0.95   # April
+    - 0.85   # May
+    - 0.90   # June
+    - 0.75   # July (lowest)
+    - 0.80   # August
+    - 0.85   # September
+    - 1.05   # October
+    - 1.20   # November (Expo season)
+    - 1.20   # December
+
+  # Participant Demographics
+  participants:
+    total_buyers: 15000
+    total_sellers: 12000
+    repeat_buyer_pct: 0.12           # 12% repeat buyers
+    institutional_buyer_pct: 0.08    # 8% institutional
+    international_buyer_pct: 0.35    # 35% international (DLD stat)
+
+  # Transaction Complexity Tiers
+  complexity_tiers:
+    simple:                          # Direct sale, single owner
+      weight: 0.55
+      steps: 4                       # KYC → Escrow → Transfer → Record
+      avg_documents: 3
+    standard:                        # Mortgage, co-ownership
+      weight: 0.30
+      steps: 7                       # + Mortgage approval, valuation, NOC
+      avg_documents: 8
+    complex:                         # Multi-party, fractional, cross-border
+      weight: 0.15
+      steps: 12                      # + Legal review, multi-sig, compliance
+      avg_documents: 15
+
+# ---- L1 Ethereum Baseline (Sec 4.2) ----------------------------------------
+l1_ethereum:
+  network: "ethereum_mainnet_sim"
+  chain_id: 1
+  block_time_seconds: 12.0           # Average Ethereum block time
+  block_gas_limit: 30000000          # 30M gas limit
+  base_fee_gwei: 25.0               # Average base fee (2023-2024)
+  priority_fee_gwei: 2.0            # Tip for miners/validators
+  eth_price_usd: 2400.0             # ETH price for cost calculations
+
+  # Gas costs per contract operation
+  gas_costs:
+    property_registration: 185000    # PropertyRegistry.register()
+    escrow_initiate: 120000          # EscrowManager.initiate()
+    escrow_release: 95000            # EscrowManager.release()
+    kyc_verification: 78000          # ComplianceKYC.verify()
+    ownership_transfer: 145000       # PropertyRegistry.transfer()
+    deed_tokenize: 210000            # TokenizedProperty.mint()
+    dao_vote: 65000                  # DAOGovernance.vote()
+    dispute_file: 155000             # DisputeResolution.file()
+    batch_transfer: 350000           # Multi-property batch
+
+  # Performance Parameters
+  performance:
+    max_tps: 15                      # Theoretical max TPS
+    effective_tps: 13.2              # Observed with real estate tx load
+    avg_latency_seconds: 15.7        # Block confirmation + propagation
+    finality_blocks: 12              # ~2.4 min probabilistic finality
+    mempool_congestion_factor: 1.3   # 30% overhead during peak
+
+  # Stress Test Behavior
+  stress_test:
+    failure_threshold_tx_per_hour: 50000
+    degradation_start_tx_per_hour: 20000
+    max_efficiency_pct: 65.0         # Efficiency at stress threshold
+
+# ---- L2 Optimism — Optimistic Rollup (Sec 4.2) -----------------------------
+l2_optimism:
+  network: "optimism_sim"
+  chain_id: 10
+  rollup_type: "optimistic"
+  sequencer_block_time_seconds: 2.0  # L2 block time
+  batch_submission_interval_seconds: 60  # Batch to L1 every ~60s
+  challenge_period_days: 7           # 7-day fraud proof window
+
+  # Gas & Cost Model
+  l2_gas_price_gwei: 0.001          # L2 execution gas price
+  l1_data_fee_multiplier: 0.06      # L1 calldata cost ratio
+  l2_overhead_gas: 2100             # Fixed overhead per L2 tx
+  l2_scalar: 1.0                    # Fee scalar (pre-Bedrock)
+  blob_fee_reduction: 0.85          # EIP-4844 blob savings (85%)
+
+  # Gas costs (L2-optimized)
+  gas_costs:
+    property_registration: 52000     # ~72% reduction from L1
+    escrow_initiate: 35000
+    escrow_release: 28000
+    kyc_verification: 22000
+    ownership_transfer: 41000
+    deed_tokenize: 58000
+    dao_vote: 18000
+    dispute_file: 44000
+    batch_transfer: 95000
+
+  # Performance Parameters (Paper Table 1)
+  performance:
+    max_tps: 2000                    # Theoretical max
+    effective_tps: 487.1             # Paper-reported TPS
+    avg_latency_seconds: 2.9         # L2 confirmation latency
+    l1_finality_seconds: 604800      # 7 days (challenge period)
+    batch_size_transactions: 500     # Transactions per L1 batch
+    compression_ratio: 0.12          # Calldata compression
+
+  # Cost per Transaction (Paper Table 2)
+  cost:
+    avg_cost_usd: 0.23              # Average cost per tx
+    min_cost_usd: 0.12
+    max_cost_usd: 0.29
+    cost_reduction_pct: 99.5         # vs L1
+
+  # Stress Test
+  stress_test:
+    target_tx_per_hour: 50000
+    expected_efficiency_pct: 91.2
+    batch_throughput_per_minute: 850
+
+# ---- L2 Polygon zkEVM — ZK Rollup (Sec 4.2) --------------------------------
+l2_polygon_zkevm:
+  network: "polygon_zkevm_sim"
+  chain_id: 1101
+  rollup_type: "zk"
+  proof_generation_time_seconds: 180  # ZK proof generation (~3 min)
+  batch_submission_interval_seconds: 30  # More frequent than optimistic
+  proof_type: "zk-SNARK"            # Proof system
+
+  # Gas & Cost Model
+  l2_gas_price_gwei: 0.0008         # Slightly cheaper than Optimism
+  l1_verification_gas: 500000       # Gas to verify ZK proof on L1
+  proof_amortization_factor: 1000   # Proof cost shared across N txs
+  blob_fee_reduction: 0.90          # Higher savings with ZK compression
+
+  # Gas costs (ZK-optimized)
+  gas_costs:
+    property_registration: 48000     # ~74% reduction from L1
+    escrow_initiate: 32000
+    escrow_release: 25000
+    kyc_verification: 20000
+    ownership_transfer: 38000
+    deed_tokenize: 54000
+    dao_vote: 16000
+    dispute_file: 40000
+    batch_transfer: 88000
+
+  # Performance Parameters (Paper Table 1)
+  performance:
+    max_tps: 2000                    # Theoretical max
+    effective_tps: 1034.6            # Paper-reported TPS
+    avg_latency_seconds: 2.1         # L2 confirmation latency
+    l1_finality_seconds: 180         # Near-instant after proof (~3 min)
+    batch_size_transactions: 1000    # Larger batches with ZK
+    compression_ratio: 0.08          # Better compression than optimistic
+    proof_verification_time_ms: 250  # On-chain proof check
+
+  # Cost per Transaction (Paper Table 2)
+  cost:
+    avg_cost_usd: 0.19              # Average cost per tx
+    min_cost_usd: 0.12
+    max_cost_usd: 0.29
+    cost_reduction_pct: 99.6         # vs L1
+
+  # Stress Test
+  stress_test:
+    target_tx_per_hour: 50000
+    expected_efficiency_pct: 91.8
+    batch_throughput_per_minute: 1750
+
+# ---- Metrics Configuration (Sec 5.1) ----------------------------------------
+metrics:
+  # TPS — Transactions Per Second
+  tps:
+    measurement_window_seconds: 60   # Rolling 60s window
+    warmup_transactions: 500         # Discard first 500 for steady state
+    sample_intervals: 100            # Number of TPS samples
+
+  # LCCI — Lifecycle Cost Complexity Index
+  lcci:
+    # LCCI = Σ(cost_i × complexity_i) / N
+    cost_components:
+      gas_fee: 1.0                   # Weight for gas fees
+      oracle_call: 0.8              # Weight for oracle interactions
+      storage_write: 1.2            # Weight for storage operations
+      cross_chain_bridge: 1.5       # Weight for L1↔L2 bridging
+      kyc_verification: 0.6        # Weight for compliance checks
+    complexity_weights:
+      simple: 1.0
+      standard: 2.5
+      complex: 5.0
+    l1_baseline_lcci: 28.5          # Paper-reported L1 LCCI
+    l2_target_lcci: 3.2             # Paper-reported L2 LCCI
+
+  # TRS — Transaction Reliability Score
+  trs:
+    # TRS = (successful_tx / total_tx) × 100
+    target_reliability_pct: 99.5     # Target TRS
+    failure_injection_rate: 0.005    # 0.5% simulated failures
+    retry_max_attempts: 3
+    retry_backoff_seconds: [2, 5, 10]
+
+  # LSL — Latency Scalability Level
+  lsl:
+    # LSL = latency_base / latency_at_scale
+    base_load_tps: 10               # Baseline load for LSL=1.0
+    scale_factors: [1, 5, 10, 25, 50, 100]
+    measurement_percentiles: [50, 95, 99]  # p50, p95, p99 latency
+
+# ---- Stress Test Configuration (Sec 5.3) ------------------------------------
+stress_test:
+  target_throughput_tx_per_hour: 50000
+  ramp_up_minutes: 5                 # Gradual ramp to target load
+  sustain_minutes: 60                # Hold target for 1 hour
+  ramp_down_minutes: 2
+  success_threshold_efficiency_pct: 90.0  # Paper's ≥90% target
+  monitoring_interval_seconds: 5     # Metrics sampling rate
+
+  # Load Profile
+  load_profile:
+    type: "stepped_ramp"             # stepped_ramp | linear | burst
+    steps:
+      - { minute: 0,  tx_per_min: 100 }
+      - { minute: 1,  tx_per_min: 200 }
+      - { minute: 2,  tx_per_min: 400 }
+      - { minute: 3,  tx_per_min: 600 }
+      - { minute: 4,  tx_per_min: 800 }
+      - { minute: 5,  tx_per_min: 834 }   # 50K/hr = ~834/min steady
+
+  # Transaction Mix During Stress
+  transaction_mix:
+    property_registration: 0.25
+    escrow_operations: 0.30          # initiate + release combined
+    ownership_transfer: 0.20
+    kyc_verification: 0.15
+    deed_tokenize: 0.05
+    dao_governance: 0.03
+    dispute_resolution: 0.02
+
+# ---- Smart Contract Configuration (Sec 3.2) ---------------------------------
+contracts:
+  solidity_version: "0.8.20"
+  optimizer:
+    enabled: true
+    runs: 200                        # Optimizer runs for deployment
+
+  # PropertyRegistryL2
+  property_registry:
+    max_properties_per_owner: 1000
+    title_hash_algorithm: "keccak256"
+    metadata_storage: "ipfs"         # On-chain hash, off-chain data
+
+  # EscrowManager
+  escrow:
+    min_escrow_amount_usd: 1000
+    max_escrow_duration_days: 90
+    auto_release_after_days: 30      # Auto-release if no dispute
+    fee_percentage: 0.25             # 0.25% escrow fee
+    multi_sig_threshold: 2           # 2-of-3 multi-sig for release
+
+  # ComplianceKYC
+  kyc:
+    oracle_provider: "chainlink"
+    verification_levels: ["basic", "enhanced", "institutional"]
+    expiry_days: 365                 # KYC validity period
+    aml_check_enabled: true
+    sanctions_list_update_hours: 24
+
+  # TokenizedProperty (ERC-721)
+  tokenization:
+    token_standard: "ERC-721"
+    base_uri: "ipfs://"
+    supports_fractional: true        # ERC-1155 for fractions
+    max_fractions: 10000
+    royalty_pct: 2.5                 # Creator royalty on resale
+
+  # DAOGovernance
+  dao:
+    voting_period_days: 7
+    quorum_pct: 20.0                 # 20% quorum required
+    proposal_threshold_tokens: 100
+    timelock_delay_hours: 48
+
+# ---- Visualization Configuration --------------------------------------------
+visualization:
+  figure_dpi: 300                    # Publication-quality DPI
+  figure_format: "png"               # png | pdf | svg
+  color_palette:
+    l1_ethereum: "#627EEA"           # Ethereum blue
+    l2_optimism: "#FF0420"           # Optimism red
+    l2_polygon_zkevm: "#7B3FE4"     # Polygon purple
+    baseline: "#888888"              # Gray for baselines
+  font_family: "DejaVu Sans"
+  font_size_title: 14
+  font_size_label: 12
+  font_size_tick: 10
+
+  # Figure 5: TPS Comparison
+  figure5:
+    type: "grouped_bar"
+    x_label: "Blockchain Environment"
+    y_label: "Transactions Per Second (TPS)"
+    title: "TPS Comparison: L1 vs L2 Solutions"
+    show_values: true
+    log_scale_y: false
+
+  # Table 1: Performance Metrics
+  table1:
+    metrics: ["tps", "latency", "finality", "throughput"]
+    environments: ["l1_ethereum", "l2_optimism", "l2_polygon_zkevm"]
+
+  # Table 2: Cost Analysis
+  table2:
+    metrics: ["avg_cost", "min_cost", "max_cost", "cost_reduction_pct"]
+    environments: ["l1_ethereum", "l2_optimism", "l2_polygon_zkevm"]
+
+# ---- Hardhat / Network Configuration ----------------------------------------
+hardhat:
+  default_network: "hardhat"
+  networks:
+    hardhat:
+      chain_id: 31337
+      gas: 30000000
+      block_gas_limit: 30000000
+      mining:
+        auto: true
+        interval: 12000              # 12s blocks to mimic mainnet
+    localhost:
+      url: "http://127.0.0.1:8545"
+      chain_id: 31337
+
+  # Compiler
+  compiler:
+    version: "0.8.20"
+    settings:
+      optimizer:
+        enabled: true
+        runs: 200
+      evmVersion: "shanghai"
